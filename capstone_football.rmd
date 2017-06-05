@@ -18,20 +18,23 @@ This can be useful for people that take part in fantasy football leagues.
 ```{r, include=FALSE}
 library(dplyr)
 library(ggplot2)
+library(RColorBrewer)
+##install.packages("GGally")
+library(GGally)
 ```
 
 ## Load the data
 ```{r}
 setwd("C:/Users/Vasu/data")
-data <- read.csv("pbp-2015.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+nfl_data_2015 <- read.csv("pbp-2015.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
 ```
 
 ## Mutate some of the data
 Create Date variable from string in data set. We will also only filter the plays that were
 rushing or passing plays. 
 ```{r}
-data$date1 <- as.Date(data$GameDate)
-dat2 <- data %>% filter(IsRush == 1 | IsPass == 1)
+nfl_data_2015$game_date <- as.Date(nfl_data_2015$GameDate)
+nfl_pass_rush <- nfl_data_2015 %>% filter(IsRush == 1 | IsPass == 1)
 ```
 
 ## Total Yards Rushing vs Total Yards Passing
@@ -42,19 +45,19 @@ over 2000 yards rushing during the season. These 6 teams were Buffalo, Carolina,
 Seattle and Tampa Bay
 
 ```{r}
-dat2 <- mutate(dat2, OffPlayType = ifelse(IsRush == 1, "Rush",ifelse(IsPass == 1,"Pass","NA")))
-dat2 <- dat2 %>% group_by(OffenseTeam,OffPlayType) %>% summarise(yards = sum(Yards))
-ggplot(dat2, aes(x=OffenseTeam, y = yards, fill = OffPlayType)) + geom_bar(stat="identity") + geom_abline(intercept = 2000)
+nfl_pass_rush <- mutate(nfl_pass_rush, OffPlayType = ifelse(IsRush == 1, "Rush",ifelse(IsPass == 1,"Pass","NA")))
+nfl_pass_rush <- nfl_pass_rush %>% group_by(OffenseTeam,OffPlayType) %>% summarise(yards = sum(Yards))
+ggplot(nfl_pass_rush, aes(x=OffenseTeam, y = yards, fill = OffPlayType)) + geom_bar(stat="identity") + geom_abline(intercept = 2000)
 ```
-
+rm(team_rushing)
 ## Distribution of Rushing Yards
 The following is a box plot of all of the teams and how many yards rushing occurred during the season. 
 The plot shows that of the teams that had the most rushing yards, Buffalo and Seattle had more games
 above their median than below. 
 ```{r}
-dat6 <- data %>% filter(IsRush == 1 & OffenseTeam != '')
-dat6 <- dat6 %>% group_by(date1,OffenseTeam,DefenseTeam) %>% summarise(yards = sum(Yards))
-ggplot(dat6, aes(x=OffenseTeam, y=yards)) + geom_boxplot()
+team_rushing <- nfl_data_2015 %>% filter(IsRush == 1 & OffenseTeam != '')
+team_rushing <- team_rushing %>% group_by(game_date,OffenseTeam,DefenseTeam) %>% summarise(yards = sum(Yards))
+ggplot(team_rushing, aes(x=OffenseTeam, y=yards)) + geom_boxplot(fill = "gold1") + theme(axis.text.x=element_text(angle = -90, hjust = 0))
 ```
 
 ## Rushing Yards Per Quarter
@@ -65,4 +68,33 @@ dat7 <- data %>% filter(IsRush == 1 & OffenseTeam != '' & Quarter != 5)
 dat7 <- dat7 %>% group_by(OffenseTeam,Quarter) %>% summarise(yards = sum(Yards))
 dat7 <- dat7 %>% filter(OffenseTeam == "BUF" | OffenseTeam == "CAR" | OffenseTeam == "KC" | OffenseTeam == "MIN" | OffenseTeam == "SEA" | OffenseTeam == "TB")
 ggplot(dat7, aes(x=Quarter, y=yards, color = OffenseTeam)) + geom_line()
+```
+
+## Defensive Team Yards Given Up
+summary(team_rushing)
+top_teams_rushing <- team_rushing %>% 
+        filter(OffenseTeam == "BUF" | OffenseTeam == "CAR" | OffenseTeam == "KC" |               OffenseTeam == "MIN" | OffenseTeam == "SEA" | OffenseTeam == "TB")
+buf_rushing <- top_teams_rushing %>% filter(OffenseTeam == "BUF")
+summary(buf_rushing)
+car_rushing <- top_teams_rushing %>% filter(OffenseTeam == "CAR")
+summary(car_rushing)
+
+## Looking into ggpairs
+pm <- ggpairs(nfl_data_2015, columns = c("DefenseTeam","Yards"))
+pm
+
+## Plot the yards per week
+```{r}
+distinct_df <- nfl_data_2015 %>% 
+   distinct(game_date)
+team_rushing <- nfl_data_2015 %>% filter(IsRush == 1 & OffenseTeam != '')
+team_rushing <- mutate(team_rushing, week = ifelse(game_date == "2015-09-10" | game_date == "2015-09-13" | game_date == "2015-09-14", "Week 1", "Week 2"))
+
+team_rushing <- nfl_data_2015 %>% filter(IsRush == 1 & OffenseTeam != '')
+team_rushing <- team_rushing %>% 
+    group_by(week,OffenseTeam) %>% 
+    summarise(yards = sum(Yards))
+
+ggplot(team_rushing, aes(x=week, y=yards, col = OffenseTeam)) + 
+  geom_point()
 ```
